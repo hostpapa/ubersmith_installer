@@ -111,9 +111,9 @@
 	Options -Indexes
 </Directory>
 
-<Directory ~ "{{ ubersmith_root }}/app/www/(cron|include\/sb\/modules|order\/templates)">
-	Require all denied
-</Directory>
+<LocationMatch "^/(cron|include/sb/modules|order/templates)(?:/|$)">
+  Require all denied
+</LocationMatch>
 
 <Directory {{ ubersmith_root }}/app/www/images/>
 	Options -Indexes
