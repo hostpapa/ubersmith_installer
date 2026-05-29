@@ -358,8 +358,7 @@
       port: 80
       state: drained
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - certbot
 
@@ -379,8 +378,7 @@
         - "{{ ubersmith_home }}/conf/certbot/log:/var/log/letsencrypt"
     with_items: "{{ virtual_hosts }}"
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - certbot
 
@@ -390,8 +388,7 @@
       port: 80
       state: drained
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - certbot
 
@@ -412,8 +409,7 @@
         - "{{ ubersmith_home }}/conf/ssl:/opt/certbot/deploy"
     with_items: "{{ virtual_hosts }}"
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - certbot
       - certbot_renewal
@@ -424,8 +420,7 @@
       port: 80
       state: drained
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - certbot
 
@@ -451,8 +446,7 @@
       job: "{{ ubersmith_home }}/ubersmith_certbot_renew.sh"
       special_time: daily
     when:
-     - lets_encrypt_certificate is defined
-     - lets_encrypt_certificate == 'yes'
+      - (lets_encrypt_certificate | default('') | trim | lower) in ['y', 'yes']
     tags:
       - le_renewal
       - certbot
