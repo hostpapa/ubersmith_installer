@@ -858,6 +858,6 @@
     community.docker.docker_prune:
       images: true
       images_filters:
-        until: 90d
+        until: 2160h
     tags:
       - upgrade_only
