@@ -3,7 +3,6 @@ set -e
 
 export PATH="$HOME/.local/bin:$HOME/.local/ubersmith_venv/bin:$PATH"
 
-# Requires python3-venv on Ubuntu
 if [ ! -d "$HOME/.local/ubersmith_venv" ]; then
     source ./find_python.sh
 fi
