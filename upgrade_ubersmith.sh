@@ -11,7 +11,7 @@ if ! command -v screen &> /dev/null; then
 fi
 
 source ./find_python.sh
-source $HOME/.local/ubersmith_venv/bin/activate
+source "$HOME"/.local/ubersmith_venv/bin/activate
 
 echo "Installing Dependencies..."
 pip3 install --disable-pip-version-check -q -r requirements_pip.txt

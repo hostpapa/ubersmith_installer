@@ -10,7 +10,7 @@ if [ ! -d "$HOME/.local/ubersmith_venv" ]; then
     source ./find_python.sh
 fi
 
-source $HOME/.local/ubersmith_venv/bin/activate
+source "$HOME"/.local/ubersmith_venv/bin/activate
 
 echo "Retrying Let's Encrypt certificate request..."
 ansible-playbook -i ./hosts -e ansible_python_interpreter=$(which python3) -c local retry_letsencrypt.yml

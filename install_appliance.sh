@@ -5,7 +5,7 @@ set -e
 # See documentation at https://docs.ubersmith.com/article.php?id=231
 
 source ./find_python.sh
-source $HOME/.local/ubersmith_venv/bin/activate
+source "$HOME"/.local/ubersmith_venv/bin/activate
 
 echo "Installing Dependencies..."
 pip3 install --disable-pip-version-check -q -r requirements_pip.txt

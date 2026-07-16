@@ -5,7 +5,7 @@ set -e
 
 export PATH="$HOME/.local/bin:$HOME/.local/ubersmith_venv/bin:$PATH"
 
-rm -rf $HOME/.local/ubersmith_venv
+rm -rf "$HOME"/.local/ubersmith_venv
 
 echo "Checking for Python 3.11 or newer..."
 
@@ -31,4 +31,4 @@ echo "Using $PYTHON_BIN ($NEWEST_VERSION)"
 
 # Requires python3-venv on Ubuntu
 echo "Creating Ubersmith Python virtual environment..."
-"$PYTHON_BIN" -m venv $HOME/.local/ubersmith_venv
+"$PYTHON_BIN" -m venv "$HOME"/.local/ubersmith_venv

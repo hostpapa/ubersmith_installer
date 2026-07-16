@@ -7,7 +7,7 @@ if [ ! -d "$HOME/.local/ubersmith_venv" ]; then
     source ./find_python.sh
 fi
 
-source $HOME/.local/ubersmith_venv/bin/activate
+source "$HOME"/.local/ubersmith_venv/bin/activate
 
 echo "Installing Dependencies..."
 pip3 install --disable-pip-version-check -q -r requirements_pip.txt
