@@ -788,6 +788,7 @@
     register: updatedb_output
     tags:
       - upgrade_only
+      - updatedb
 
   # Show the upgrade output, in the event of any issues.
   - name: display updatedb.php debug output
@@ -798,6 +799,7 @@
       - updatedb_output.stdout
     tags:
       - upgrade_only
+      - updatedb
 
   # For upgrades, remove the setup/ directory, allowing Ubersmith to start.
   - name: remove setup
