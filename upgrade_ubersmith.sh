@@ -11,11 +11,6 @@ if ! command -v screen &> /dev/null; then
 fi
 
 source ./find_python.sh
-
-# Requires python3-venv on Ubuntu
-echo "Creating Ubersmith Python virtual environment..."
-"$PYTHON_BIN" -m venv $HOME/.local/ubersmith_venv
-
 source $HOME/.local/ubersmith_venv/bin/activate
 
 echo "Installing Dependencies..."

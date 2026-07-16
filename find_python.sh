@@ -28,3 +28,7 @@ if [ -z "$PYTHON_BIN" ]; then
 fi
 
 echo "Using $PYTHON_BIN ($NEWEST_VERSION)"
+
+# Requires python3-venv on Ubuntu
+echo "Creating Ubersmith Python virtual environment..."
+"$PYTHON_BIN" -m venv $HOME/.local/ubersmith_venv

@@ -5,11 +5,6 @@ set -e
 # See documentation at https://docs.ubersmith.com/article.php?id=231
 
 source ./find_python.sh
-
-# Requires python3-venv on Ubuntu
-echo "Creating Ubersmith Python virtual environment..."
-"$PYTHON_BIN" -m venv $HOME/.local/ubersmith_venv
-
 source $HOME/.local/ubersmith_venv/bin/activate
 
 echo "Installing Dependencies..."
