@@ -564,6 +564,7 @@
       owner: "{{ ansible_user_id }}"
       group: "{{ ansible_user_gid }}"
       mode: 0700
+      force: no
     tags:
       - upgrade
 
@@ -654,7 +655,7 @@
       chdir: "{{ ubersmith_home }}"
     when: 
       - ubersmith_installed_version is version_compare('5.2.0', '<')
-      - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
+      - "'DATABASE_HOST=dbBREAK' in web_container_info.container.Config.Env"
     tags:
       - upgrade_only
 
@@ -701,7 +702,7 @@
       volumes:
         - "ubersmith_database:/mysql"
     when:
-      - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
+      - "'DATABASE_HOST=dbBREAK' in web_container_info.container.Config.Env"
     tags:
       - upgrade_only
       - mysql_permissions
@@ -741,7 +742,7 @@
       - ubersmith-php-1
       - ubersmith-solr-1
     when:
-      - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"   
+      - "'DATABASE_HOST=dbBREAK' in web_container_info.container.Config.Env"   
     tags:
       - upgrade_only
 
@@ -774,7 +775,7 @@
     retries: 6
     delay: 10
     when:
-      - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
+      - "'DATABASE_HOST=dbBREAK' in web_container_info.container.Config.Env"
     tags:
       - docker_container_info
       - upgrade_only
@@ -787,6 +788,7 @@
       command: "/bin/bash -c 'php {{ ubersmith_root }}/app/www/setup/updatedb.php ubersmith --debug'"
     register: updatedb_output
     tags:
+      - updatedb
       - upgrade_only
 
   # Show the upgrade output, in the event of any issues.
@@ -797,6 +799,7 @@
       - updatedb_output.stderr
       - updatedb_output.stdout
     tags:
+      - updatedb
       - upgrade_only
 
   # For upgrades, remove the setup/ directory, allowing Ubersmith to start.
