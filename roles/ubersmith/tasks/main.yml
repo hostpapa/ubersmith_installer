@@ -864,11 +864,35 @@
   tags:
     - upgrade
 
-# Cleanup unused Docker images to preserve disk space.
-- name: Docker image cleanup
-  community.docker.docker_prune:
+# Cleanup unused Docker images older than 90 days to preserve disk space.
+# Only images from {{ registry }} are considered so bespoke customer
+# images are never pruned by mistake (docker_prune's images_filters has
+# no way to scope by repository, only by dangling/label/age).
+- name: Gather containers to determine in-use images
+  community.docker.docker_host_info:
+    containers: true
+    containers_all: true
+    verbose_output: true
+  register: docker_containers
+  tags:
+    - upgrade_only
+
+- name: Gather images from {{ registry }}
+  community.docker.docker_host_info:
     images: true
     images_filters:
-      until: 2160h
+      reference: "{{ registry }}/*"
+  register: docker_registry_images
+  tags:
+    - upgrade_only
+
+- name: Docker image cleanup
+  community.docker.docker_image_remove:
+    name: "{{ item.Id }}"
+  loop: "{{ docker_registry_images.images
+    | rejectattr('Id', 'in', docker_containers.containers | map(attribute='ImageID') | list)
+    | selectattr('Created', 'lt', (ansible_date_time.epoch | int) - (2160 * 3600)) }}"
+  loop_control:
+    label: "{{ item.RepoTags | default([item.Id]) }}"
   tags:
     - upgrade_only
