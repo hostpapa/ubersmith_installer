@@ -659,6 +659,7 @@
     - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
   changed_when: true
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Only when upgrading, stop and remove default existing Ubersmith containers.
@@ -708,6 +709,7 @@
   when:
     - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
   tags:
+    - hostpapa_skip
     - upgrade_only
     - mysql_permissions
 
@@ -750,6 +752,7 @@
   when:
     - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Copy redis data dumped from the redis locking container to the redis data container's volume
@@ -784,6 +787,7 @@
   when:
     - "'DATABASE_HOST=db' in web_container_info.container.Config.Env"
   tags:
+    - hostpapa_skip
     - docker_container_info
     - upgrade_only
     - mysql_upgrade
@@ -795,6 +799,7 @@
     command: "/bin/bash -c 'php {{ ubersmith_root }}/app/www/setup/updatedb.php ubersmith --debug'"
   register: updatedb_output
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Show the upgrade output, in the event of any issues.
@@ -805,6 +810,7 @@
     - updatedb_output.stderr
     - updatedb_output.stdout
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # For upgrades, remove the setup/ directory, allowing Ubersmith to start.
@@ -813,6 +819,7 @@
     container: ubersmith-web-1
     command: "/bin/bash -c 'rm -rf {{ ubersmith_root }}/app/www/setup'"
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Disable maintenance mode
