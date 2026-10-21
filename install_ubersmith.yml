@@ -20,6 +20,10 @@
       prompt: "Enter the hostname(s) where you will be hosting Ubersmith; for multiple hostnames use a comma delimited list"
       default: "ubersmith.example.com"
       private: false
+    - name: "enable_ipv6"
+      prompt: "Enable IPv6 support"
+      default: "no"
+      private: false
     - name: "admin_email"
       prompt: "Enter the email address of the Ubersmith administrator"
       default: "admin@example.org"
@@ -29,6 +33,9 @@
     interactive: "{{ (lookup('env', 'UBERSMITH_INTERACTIVE') | default('true', true)) | bool }}"
     certificate_domains: "{{ virtual_host }}"
     notify_email: "{{ admin_email }}"
+    # Always back up the keyring on a fresh install; this is only made
+    # optional (and prompted for) on upgrade_ubersmith.yml.
+    backup_mysql_keyring: "yes"
 
   roles:
     - common

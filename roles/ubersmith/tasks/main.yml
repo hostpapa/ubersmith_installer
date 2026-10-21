@@ -105,6 +105,7 @@
     - { var: "ubersmith_home", val: "{{ ubersmith_home }}" }
     - { var: "virtual_host", val: "{{ virtual_host }}" }
     - { var: "admin_email", val: "{{ admin_email }}" }
+    - { var: "enable_ipv6", val: "{{ enable_ipv6 }}" }
   tags:
     - new_brand
 
@@ -126,6 +127,71 @@
     - ansible_os_family != "Windows"
   tags:
     - disable_mtas
+
+# Check if host supports IPv6
+- name: Check if host has IPv6 capability
+  block:
+    - name: Check IPv6 sysctl status
+      ansible.builtin.command: cat /proc/sys/net/ipv6/conf/all/disable_ipv6
+      register: ipv6_disabled_check
+      changed_when: false
+      failed_when: false
+      when:
+        - ansible_os_family != "Darwin"
+        - ansible_os_family != "Windows"
+
+    - name: Set IPv6 capability fact
+      ansible.builtin.set_fact:
+        ipv6_capable: "{{ (ipv6_disabled_check.stdout | default('1') | trim) == '0' }}"
+      when:
+        - ansible_os_family != "Darwin"
+        - ansible_os_family != "Windows"
+
+    - name: Set IPv6 capability to true for macOS/Windows
+      ansible.builtin.set_fact:
+        ipv6_capable: true
+      when:
+        - ansible_os_family == "Darwin" or ansible_os_family == "Windows"
+  tags:
+    - docker_ipv6
+
+- name: Warn if IPv6 requested but not available
+  ansible.builtin.pause:
+    prompt: |-
+      WARNING: IPv6 support was requested, but this host does not have IPv6 enabled.
+
+      To enable IPv6 on this host, run:
+        sysctl -w net.ipv6.conf.all.disable_ipv6=0
+
+      IPv6 configuration will be skipped for this installation.
+      Press CTRL+C to abort, or ENTER to continue without IPv6.
+  when:
+    - (enable_ipv6 | default('') | trim | lower) in ['y', 'yes']
+    - not ipv6_capable
+    - interactive
+  tags:
+    - docker_ipv6
+
+# Disable Docker's userland-proxy so published ports rely solely on iptables
+# DNAT, which preserves the real client IP instead of the docker0/bridge
+# gateway address showing up in Apache/PHP logs. Also configures IPv6 when
+# requested and supported by the host (see the capability check above).
+# This task is intentionally untagged with upgrade/upgrade_only so it only
+# ever runs on a fresh install, never on upgrade_ubersmith.yml, since
+# restarting the Docker daemon restarts every container on the host.
+- name: Configure Docker daemon (client IP preservation, optional IPv6)
+  ansible.builtin.template:
+    src: docker-daemon.json.j2
+    dest: "/etc/docker/daemon.json"
+    backup: true
+  when:
+    - ansible_os_family != "Darwin"
+    - ansible_os_family != "Windows"
+  notify:
+    - restart docker
+  tags:
+    - docker_daemon
+    - docker_ipv6
 
 # Updates to docker-compose remove the project_container_index syntax
 - name: Alert admin to necessary license updates
@@ -849,6 +915,8 @@
     volumes:
       - "ubersmith_database_keyring:/keyring"
       - "{{ ubersmith_home }}/backup:/backup"
+  when:
+    - (backup_mysql_keyring | default('no') | trim | lower) in ['y', 'yes']
   tags:
     - upgrade
     - mysql_config
@@ -868,6 +936,7 @@
   with_items:
     - { var: "ubersmith_installed_version", val: "{{ ubersmith_version }}" }
     - { var: "lets_encrypt_certificate", val: "{{ lets_encrypt_certificate }}" }
+    - { var: "enable_ipv6", val: "{{ enable_ipv6 }}" }
   tags:
     - upgrade
 
