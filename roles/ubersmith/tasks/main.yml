@@ -789,6 +789,7 @@
     MAINTENANCE: "1"
   changed_when: true
   tags:
+    - hostpapa_skip
     - upgrade
     - maintenance_enable
 
@@ -799,6 +800,7 @@
     chdir: "{{ ubersmith_home }}"
   changed_when: true
   tags:
+    - hostpapa_skip
     - upgrade
 
 # Solr can take a little bit to start, so wait before proceeding with the upgrade.
@@ -830,6 +832,7 @@
   failed_when: false
   changed_when: true
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Change ownership on the redis dump.rdb file to redis:redis
@@ -840,6 +843,7 @@
   when: not redis_volume_output.exists
   failed_when: false
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 # Depending on system performance, the database container can take a long time to restart
@@ -897,6 +901,7 @@
     MAINTENANCE: "0"
   changed_when: true
   tags:
+    - hostpapa_skip
     - upgrade
     - maintenance_disable
 
@@ -918,6 +923,7 @@
   when:
     - (backup_mysql_keyring | default('no') | trim | lower) in ['y', 'yes']
   tags:
+    - hostpapa_skip
     - upgrade
     - mysql_config
     - mysql_keyring_backup
@@ -951,6 +957,7 @@
     verbose_output: true
   register: docker_containers
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 - name: Gather images from {{ registry }}
@@ -960,6 +967,7 @@
       reference: "{{ registry }}/*"
   register: docker_registry_images
   tags:
+    - hostpapa_skip
     - upgrade_only
 
 - name: Docker image cleanup
@@ -971,4 +979,5 @@
   loop_control:
     label: "{{ item.RepoTags | default([item.Id]) }}"
   tags:
+    - hostpapa_skip
     - upgrade_only

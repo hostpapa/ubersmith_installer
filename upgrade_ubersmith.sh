@@ -27,5 +27,5 @@ if [[ "$launch_in_screen" =~ ^[Yy] ]]; then
     screen -r ubersmith_upgrade
 else
     echo "Upgrading Ubersmith..."
-    ansible-playbook -i ./hosts -e ansible_python_interpreter=$(which python3) -c local -t upgrade,upgrade_only upgrade_ubersmith.yml
+    ansible-playbook -i ./hosts -e ansible_python_interpreter=$(which python3) -c local -t upgrade,upgrade_only --skip-tags hostpapa_skip upgrade_ubersmith.yml
 fi
