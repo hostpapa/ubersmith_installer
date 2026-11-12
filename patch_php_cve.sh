@@ -58,6 +58,11 @@ if [ ! -f "$INSTALLER_INI" ]; then
   exit 1
 fi
 
+if ! command -v curl > /dev/null 2>&1; then
+  echo "Error: curl is not available" >&2
+  exit 1
+fi
+
 # ini_get <section> <key>
 ini_get() {
   local section="$1" key="$2"
@@ -108,37 +113,64 @@ target_release_version_for() {
   printf '%s\n' "$PHP_CVE_RELEASE_VERSIONS" | awk -F: -v v="$installed_version" '$1==v{print $2}'
 }
 
+# image_exists <repo> <tag> -- queries the registry API directly via curl
+# rather than `docker manifest inspect`, whose auth/manifest-list handling
+# is inconsistent across older Docker CLI versions (confirmed broken
+# against ghcr.io on Docker 19.03, reporting "no such manifest" for an
+# image that genuinely exists).
+image_exists() {
+  local repo="$1" tag="$2"
+  local host="${REGISTRY%%/*}" org="${REGISTRY#*/}"
+  local token
+  token=$(curl -fs "https://${host}/token?scope=repository:${org}/${repo}:pull" | sed -E 's/.*"token":"([^"]+)".*/\1/') || return 1
+  [ -n "$token" ] || return 1
+  local http_code
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+    -H "Authorization: Bearer ${token}" \
+    -H "Accept: application/vnd.docker.distribution.manifest.v2+json,application/vnd.docker.distribution.manifest.list.v2+json,application/vnd.oci.image.manifest.v1+json,application/vnd.oci.image.index.v1+json" \
+    "https://${host}/v2/${org}/${repo}/manifests/${tag}")
+  [ "$http_code" = "200" ]
+}
+
 confirm_images_published() {
   local new_tag="$1"
   shift
   local repo
   for repo in "$@"; do
     echo "Confirming ${REGISTRY}/${repo}:${new_tag} is published..."
-    if ! docker manifest inspect "${REGISTRY}/${repo}:${new_tag}" > /dev/null; then
+    if ! image_exists "$repo" "$new_tag"; then
       echo "Error: ${REGISTRY}/${repo}:${new_tag} does not exist" >&2
       exit 1
     fi
   done
 }
 
-# bump_image_tag <compose_file> <new_tag> <repo1> [<repo2> ...]
-# Returns 0 if the file actually changed, 1 otherwise.
+# bump_image_tag <compose_file> <new_tag> <php_repo> <other_repo1> [<other_repo2> ...]
+# Rewrites the whole image reference (registry + repo + tag) to
+# $REGISTRY/<repo>:<new_tag>, regardless of what registry or repo name the
+# line currently uses -- installs old enough to need this patch have used
+# several: quay.io/ubersmith/php:7.3 (bare, no version number in the repo
+# name at all), quay.io/ubersmith/php73:X.Y.Z.0, and the current
+# ghcr.io/teamubersmith/php73:X.Y.Z-rN. The php service is matched by its
+# generic "php[0-9]*" shape and always rewritten to the canonical
+# <php_repo> passed in; the others are matched by their literal (stable)
+# names. Returns 0 if the file actually changed, 1 otherwise.
 bump_image_tag() {
-  local compose_file="$1" new_tag="$2"
-  shift 2
-  local repos=("$@")
-  local pattern
-  pattern=$(printf '%s|' "${repos[@]}")
-  pattern="${pattern%|}"
-
-  local escaped_registry
-  escaped_registry=$(printf '%s' "$REGISTRY" | sed -e 's/[.[\*^$()+?{|]/\\&/g')
+  local compose_file="$1" new_tag="$2" php_repo="$3"
+  shift 3
+  local other_repos=("$@")
+  local other_pattern
+  other_pattern=$(printf '%s|' "${other_repos[@]}")
+  other_pattern="${other_pattern%|}"
 
   cp -p "$compose_file" "${compose_file}.bak-$(date +%Y%m%d%H%M%S)"
 
   local tmp
   tmp=$(mktemp)
-  sed -E "s#^([[:space:]]*image:[[:space:]]*${escaped_registry}/(${pattern}):)[^[:space:]]+\$#\1${new_tag}#" "$compose_file" > "$tmp"
+  sed -E \
+    -e "s#^([[:space:]]*image:[[:space:]]*)[^[:space:]]*/php[0-9]*:[^[:space:]]+\$#\1${REGISTRY}/${php_repo}:${new_tag}#" \
+    -e "s#^([[:space:]]*image:[[:space:]]*)[^[:space:]]*/(${other_pattern}):[^[:space:]]+\$#\1${REGISTRY}/\2:${new_tag}#" \
+    "$compose_file" > "$tmp"
 
   if cmp -s "$compose_file" "$tmp"; then
     rm -f "$tmp"
@@ -158,26 +190,52 @@ if [ -z "$ubersmith_target_release_version" ]; then
 fi
 
 ubersmith_compose_file="${UBERSMITH_HOME}/docker-compose.yml"
-php_repo=$(grep -oE "${REGISTRY}/php[0-9]+:" "$ubersmith_compose_file" | head -1 | sed -E 's#.*/(php[0-9]+):#\1#')
-if [ -z "$php_repo" ]; then
-  echo "Error: Could not find a ${REGISTRY}/phpNN image in $ubersmith_compose_file" >&2
+if [ ! -f "$ubersmith_compose_file" ]; then
+  echo "Error: $ubersmith_compose_file not found" >&2
   exit 1
 fi
+
+# The php image repo has used several names over the years in the compose
+# file itself (bare "php", "php73", "php82", ...), so it's determined here
+# from the installed version instead. NOT just a major-version split --
+# verified against roles/ubersmith/vars/main.yml's history and the actual
+# published images: the "5" line used php82 through 5.0.3 before moving to
+# php84 at 5.1.0.
+case "$UBERSMITH_INSTALLED_VERSION" in
+  4.6.1|4.6.2|4.6.3|4.6.4) php_repo="php73" ;;
+  5.0.0|5.0.1|5.0.2|5.0.3) php_repo="php82" ;;
+  5.1.*|5.2.*|5.3.*) php_repo="php84" ;;
+  *)
+    echo "Error: Don't know which php image repo to use for ubersmith_installed_version $UBERSMITH_INSTALLED_VERSION" >&2
+    exit 1
+    ;;
+esac
 
 # Sanity check: the running php container's image version should match
 # ubersmith_installed_version. A mismatch means .ubersmith_installer.ini is
 # stale (e.g. a manual upgrade that didn't update it), and we'd compute the
 # wrong target tag.
-php_container_id=$(cd "$UBERSMITH_HOME" && compose ps -q php)
+php_container_id=$(cd "$UBERSMITH_HOME" && compose ps -q php) || true
 if [ -z "$php_container_id" ]; then
   echo "Error: No running php container found; is Ubersmith up?" >&2
   exit 1
 fi
 running_image=$(docker inspect --format '{{.Config.Image}}' "$php_container_id")
 running_tag="${running_image##*:}"
-running_version="${running_tag%-r*}"
-running_release="${running_tag##*-}"
-if [ "$running_version" != "$UBERSMITH_INSTALLED_VERSION" ]; then
+# The version is always a leading major.minor.revision; what follows it has
+# varied (current: "-rN", legacy quay.io-era: ".0"). Only the release number
+# is needed beyond that, and only if present.
+running_version=""
+running_release=""
+if [[ "$running_tag" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+  running_version="${BASH_REMATCH[1]}"
+fi
+if [[ "$running_tag" =~ -r([0-9]+)$ ]]; then
+  running_release="r${BASH_REMATCH[1]}"
+fi
+# Some legacy tags (e.g. "7.3") carry no Ubersmith version at all -- just
+# the php language version -- so there's nothing to compare in that case.
+if [ -n "$running_version" ] && [ "$running_version" != "$UBERSMITH_INSTALLED_VERSION" ]; then
   echo "Error: ubersmith_installed_version in $INSTALLER_INI ($UBERSMITH_INSTALLED_VERSION) does not match the running php container's image ($running_image). Refusing to patch; check for a stale .ubersmith_installer.ini." >&2
   exit 1
 fi
